@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head><title>Audio Player</title></head>
+<body>
+  <h1>Live MP3 Stream</h1>
+  <video id="player" controls autoplay style="width:100%;">MP3 Stream</video>
+  <script>
+    // Replace hardcoded localhost
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsHost = window.location.host;  // Same domain as page
+    const ws = new WebSocket(`${wsProtocol}//${wsHost}/ws`);  // /ws path
+
+    ws.binaryType = 'arraybuffer';
+    const player = document.getElementById('player');
+    const ms = new MediaSource();
+    player.src = URL.createObjectURL(ms);
+    let sourceBuffer = null;
+    let pendingChunks = [];
+
+    ms.addEventListener('sourceopen', () => {
+      sourceBuffer = ms.addSourceBuffer('audio/mpeg');
+      sourceBuffer.addEventListener('updateend', () => {
+        if (pendingChunks.length) sourceBuffer.appendBuffer(pendingChunks.shift());
+      });
+    });
+
+    // Add this INSIDE the WebSocket message handler, at the top:
+ws.onmessage = (evt) => {
+  // Handle clear command FIRST
+  if (typeof evt.data === 'string') {
+    const msg = JSON.parse(evt.data);
+    if (msg.type === 'clear') {
+      if (sourceBuffer) {
+        sourceBuffer.abort();
+        pendingChunks = [];
+      }
+      player.pause();
+      player.currentTime = 0;
+      return;
+    }
+  }
+  
+  // Handle audio chunks
+  const chunk = evt.data;
+  if (!sourceBuffer || sourceBuffer.updating) {
+    pendingChunks.push(chunk);
+  } else {
+    sourceBuffer.appendBuffer(chunk);
+  }
+};
+
+  </script>
+</body>
+</html>

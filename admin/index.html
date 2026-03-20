@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head><title>Admin Panel</title></head>
+<body>
+  <h1>Audio Stream Control</h1>
+  <select id="audioFile">
+    <option value="">Select MP3</option>
+  </select>
+  <button id="start">Start Stream</button>
+  <button id="stop" disabled>Stop Stream</button>
+<script>
+  const select = document.getElementById('audioFile');
+  const startBtn = document.getElementById('start');
+  const stopBtn = document.getElementById('stop');
+
+  // Fetch MP3 list from server
+  fetch('/api/files')
+    .then(res => res.json())
+    .then(files => {
+      files.forEach(file => {
+        const opt = document.createElement('option');
+        opt.value = file.replace('/audio/', ''); // Just filename for start
+        opt.textContent = file;
+        select.appendChild(opt);
+      });
+    });
+
+  startBtn.onclick = () => {
+    const file = select.value;
+    if (!file) return alert('Select a file');
+    fetch(`/admin/start?file=${file}`).then(() => {
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+    });
+  };
+
+  stopBtn.onclick = () => {
+    fetch('/admin/stop').then(() => {
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    });
+  };
+</script>
+
+</body>
+</html>
