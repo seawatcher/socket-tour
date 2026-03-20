@@ -55,10 +55,6 @@ const initWebSocket = () => {
   
 };
 
-// Listen on dynamic port
-app.listen(port, '0.0.0.0', () => {  // Bind to all interfaces
-  console.log(`Server at http://0.0.0.0:${port}`);
-});
 
 
 
@@ -132,9 +128,6 @@ app.get('/api/files', (req, res) => {
   });
 });
 //app.use('/audio', express.static(path.join(__dirname, 'audio')));
-
-
-app.listen(port, () => console.log(`Server at http://localhost:${port}`));
 
 
 
