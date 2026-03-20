@@ -9,9 +9,7 @@ const wsPort = process.env.WS_PORT || 8080;
 app.set('trust proxy', 1); // For HTTPS detection
 // Listen on dynamic port
 
-app.listen(port, '0.0.0.0', () => {  // Bind to all interfaces
-  console.log(`Server at http://0.0.0.0:${port}`);
-});
+
 
 // Basic Auth Middleware
 const requireAuth = (req, res, next) => {
