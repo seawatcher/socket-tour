@@ -9,7 +9,23 @@
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsHost = window.location.host;  // Same domain as page
     const ws = new WebSocket(`${wsProtocol}//${wsHost}/ws`);  // /ws path
+    let isPlaying = false;
+        let audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let source;
 
+        // WebSocket connection to the server
+        const socket = new WebSocket('ws://yourserver.com');
+
+        socket.onmessage = function(event) {
+            const audioBlob = event.data;
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audioElement = new Audio(audioUrl);
+
+            if (!isPlaying) {
+                isPlaying = true;
+                audioElement.play();
+            }
+        };
     ws.binaryType = 'arraybuffer';
     const player = document.getElementById('player');
     const ms = new MediaSource();
