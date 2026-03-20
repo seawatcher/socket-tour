@@ -5,27 +5,11 @@
   <h1>Live MP3 Stream</h1>
   <audio id="player" style="width:100%;">MP3 Stream</audio>
   <script>
-    // Replace hardcoded localhost
+    // WebSocket connection
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsHost = window.location.host;  // Same domain as page
-    const ws = new WebSocket(`${wsProtocol}//${wsHost}/ws`);  // /ws path
-    let isPlaying = false;
-        let audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        let source;
+    const wsHost = window.location.host;
+    const ws = new WebSocket(`${wsProtocol}//${wsHost}/ws`);
 
-        // WebSocket connection to the server
-        const socket = new WebSocket('ws://socket-tour.onrender.com');
-
-        socket.onmessage = function(event) {
-            const audioBlob = event.data;
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audioElement = new Audio(audioUrl);
-
-            if (!isPlaying) {
-                isPlaying = true;
-                audioElement.play();
-            }
-        };
     ws.binaryType = 'arraybuffer';
     const player = document.getElementById('player');
     const ms = new MediaSource();
@@ -40,31 +24,29 @@
       });
     });
 
-    // Add this INSIDE the WebSocket message handler, at the top:
-ws.onmessage = (evt) => {
-  // Handle clear command FIRST
-  if (typeof evt.data === 'string') {
-    const msg = JSON.parse(evt.data);
-    if (msg.type === 'clear') {
-      if (sourceBuffer) {
-        sourceBuffer.abort();
-        pendingChunks = [];
+    ws.onmessage = (evt) => {
+      // Handle clear command FIRST
+      if (typeof evt.data === 'string') {
+        const msg = JSON.parse(evt.data);
+        if (msg.type === 'clear') {
+          if (sourceBuffer) {
+            sourceBuffer.abort();
+            pendingChunks = [];
+          }
+          player.pause();
+          player.currentTime = 0;
+          return;
+        }
       }
-      player.pause();
-      player.currentTime = 0;
-      return;
-    }
-  }
-  
-  // Handle audio chunks
-  const chunk = evt.data;
-  if (!sourceBuffer || sourceBuffer.updating) {
-    pendingChunks.push(chunk);
-  } else {
-    sourceBuffer.appendBuffer(chunk);
-  }
-};
-
+      
+      // Handle audio chunks
+      const chunk = evt.data;
+      if (!sourceBuffer || sourceBuffer.updating) {
+        pendingChunks.push(chunk);
+      } else {
+        sourceBuffer.appendBuffer(chunk);
+      }
+    };
   </script>
 </body>
 </html>
