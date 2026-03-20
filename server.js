@@ -8,9 +8,7 @@ const wsPort = process.env.WS_PORT || 8080;
 
 app.set('trust proxy', 1); // For HTTPS detection
 // Listen on dynamic port
-app.listen(port, '0.0.0.0', () => {  // Bind to all interfaces
-  console.log(`Server at http://0.0.0.0:${port}`);
-});
+
 
 
 // Basic Auth Middleware
@@ -42,6 +40,7 @@ let currentStream = null; // Track active stream
 let wss = null;
 
 // WebSocket server (works behind proxies)
+const server = app.listen(port, '0.0.0.0');
 const initWebSocket = () => {
   wss = new WebSocketServer({ noServer: true });
   server.on('upgrade', (request, socket, head) => {
@@ -54,7 +53,10 @@ const initWebSocket = () => {
   
 };
 
-
+// Listen on dynamic port
+app.listen(port, '0.0.0.0', () => {  // Bind to all interfaces
+  console.log(`Server at http://0.0.0.0:${port}`);
+});
 
 
 

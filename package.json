@@ -1,0 +1,26 @@
+{
+  "name": "socket-tour",
+  "version": "1.0.0",
+  "description": "aduio streaming ",
+  "homepage": "https://github.com/seawatcher/socket-tour#readme",
+  "bugs": {
+    "url": "https://github.com/seawatcher/socket-tour/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/seawatcher/socket-tour.git"
+  },
+  "license": "ISC",
+  "author": "seawatcher",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "dependencies": {
+    "express": "^5.2.1",
+    "ws": "^8.19.0"
+  }
+}
