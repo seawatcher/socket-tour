@@ -4,16 +4,16 @@ const fs = require('fs');
 const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
-const wsPort = process.env.WS_PORT || 8080;
+// Rimuovi wsPort non usato; usa port per WS
 
 app.set('trust proxy', 1); // For HTTPS detection
-// Listen on dynamic port
 
-
-
-// Basic Auth Middleware
+// Basic Auth Middleware - Migliorato: usa env vars
 const requireAuth = (req, res, next) => {
-  const auth = { login: 'admin', password: 'stream' }; // Change these!
+  const auth = { 
+    login: process.env.ADMIN_LOGIN || 'admin', 
+    password: process.env.ADMIN_PASSWORD || 'stream' 
+  };
   
   const b64auth = (req.headers.authorization || '').split(' ')[1] || '';
   const [login, password] = Buffer.from(b64auth, 'base64').toString().split(':');
@@ -39,22 +39,28 @@ app.use('/audio', express.static(path.join(__dirname, 'audio')));
 let currentStream = null; // Track active stream
 let wss = null;
 
-// WebSocket server (works behind proxies)
-const server = app.listen(port, '0.0.0.0');
+// WebSocket server - Migliorato: aggiungi gestione errori e logging
+const server = app.listen(port, '0.0.0.0', () => {
+  console.log(`Server listening on port ${port}`);
+});
 const initWebSocket = () => {
   wss = new WebSocketServer({ noServer: true });
   server.on('upgrade', (request, socket, head) => {
-  if (request.url === '/ws') {
-    wss.handleUpgrade(request, socket, head, (ws) => {
-      wss.emit('connection', ws, request);
-    });
-  }
-});
+    if (request.url === '/ws') {
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+      });
+    } else {
+      socket.destroy();
+    }
+  });
   
+  wss.on('connection', (ws) => {
+    console.log('WebSocket client connected');
+    ws.on('error', (err) => console.error('WebSocket error:', err));
+    ws.on('close', () => console.log('WebSocket client disconnected'));
+  });
 };
-
-
-
 
 initWebSocket();
 
@@ -77,27 +83,39 @@ app.get('/admin/start', requireAuth, (req, res) => {
     });
   }
   
-  currentStream = fs.createReadStream(path.join('audio', file));
-  
-  currentStream.on('data', (chunk) => {
-    wss.clients.forEach(client => {
-      if (client.readyState === 1) {
-        client.send(chunk);
-      }
+  try {
+    currentStream = fs.createReadStream(path.join('audio', file));
+    
+    currentStream.on('data', (chunk) => {
+      wss.clients.forEach(client => {
+        if (client.readyState === 1) {
+          client.send(chunk, (err) => {
+            if (err) console.error('Error sending chunk:', err);
+          });
+        }
+      });
     });
-  });
-  
-  currentStream.on('end', () => { 
-    currentStream = null;
-    // Send end signal
-    wss.clients.forEach(client => {
-      if (client.readyState === 1) {
-        client.send(JSON.stringify({ type: 'end' }));
-      }
+    
+    currentStream.on('end', () => { 
+      currentStream = null;
+      // Send end signal
+      wss.clients.forEach(client => {
+        if (client.readyState === 1) {
+          client.send(JSON.stringify({ type: 'end' }));
+        }
+      });
     });
-  });
-  
-  res.send('Stream started: ' + file);
+    
+    currentStream.on('error', (err) => {
+      console.error('Stream error:', err);
+      currentStream = null;
+    });
+    
+    res.send('Stream started: ' + file);
+  } catch (err) {
+    console.error('Error starting stream:', err);
+    res.status(500).send('Error starting stream');
+  }
 });
 
 app.get('/admin/stop', requireAuth, (req, res) => {
@@ -116,16 +134,15 @@ app.get('/admin/stop', requireAuth, (req, res) => {
   res.send('Stream stopped');
 });
 
-
 app.get('/api/files', (req, res) => {
   const audioDir = path.join(__dirname, 'audio');
   fs.readdir(audioDir, (err, files) => {
-    if (err) return res.status(500).json([]);
+    if (err) {
+      console.error('Error reading audio dir:', err);
+      return res.status(500).json([]);
+    }
     const mp3s = files.filter(f => f.endsWith('.mp3')).map(f => `/audio/${f}`);
     res.json(mp3s);
   });
 });
-//app.use('/audio', express.static(path.join(__dirname, 'audio')));
-
-
 
