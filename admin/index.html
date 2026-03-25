@@ -6,20 +6,21 @@
   <select id="audioFile">
     <option value="">Select MP3</option>
   </select>
-  <button id="start">Start Stream</button>
-  <button id="stop" disabled>Stop Stream</button>
+  <button id="start">Start/Resume</button>
+  <button id="stop" disabled>Stop (pause)</button>
+  <button id="reset">Reset</button>
 <script>
   const select = document.getElementById('audioFile');
   const startBtn = document.getElementById('start');
   const stopBtn = document.getElementById('stop');
+  const resetBtn = document.getElementById('reset');
 
-  // Fetch MP3 list from server
   fetch('/api/files')
     .then(res => res.json())
     .then(files => {
       files.forEach(file => {
         const opt = document.createElement('option');
-        opt.value = file.replace('/audio/', ''); // Just filename for start
+        opt.value = file.replace('/audio/', '');
         opt.textContent = file;
         select.appendChild(opt);
       });
@@ -28,19 +29,31 @@
   startBtn.onclick = () => {
     const file = select.value;
     if (!file) return alert('Select a file');
-    fetch(`/admin/start?file=${file}`).then(() => {
-      startBtn.disabled = true;
-      stopBtn.disabled = false;
-    });
+    fetch(`/admin/start?file=${encodeURIComponent(file)}`)
+      .then(res => res.text())
+      .then(() => {
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+      });
   };
 
   stopBtn.onclick = () => {
-    fetch('/admin/stop').then(() => {
-      startBtn.disabled = false;
-      stopBtn.disabled = true;
-    });
+    fetch('/admin/stop')
+      .then(res => res.text())
+      .then(() => {
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+      });
+  };
+
+  resetBtn.onclick = () => {
+    fetch('/admin/reset')
+      .then(res => res.text())
+      .then(() => {
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+      });
   };
 </script>
-
 </body>
 </html>

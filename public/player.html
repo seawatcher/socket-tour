@@ -3,50 +3,81 @@
 <head><title>Audio Player</title></head>
 <body>
   <h1>Live MP3 Stream</h1>
-  <audio id="player" style="width:100%;">MP3 Stream</audio>
+  <audio id="player" controls autostart style="width:100%;">MP3 Stream</audio>
   <script>
-    // WebSocket connection
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsHost = window.location.host;
     const ws = new WebSocket(`${wsProtocol}//${wsHost}/ws`);
-
     ws.binaryType = 'arraybuffer';
+
     const player = document.getElementById('player');
     const ms = new MediaSource();
     player.src = URL.createObjectURL(ms);
+
     let sourceBuffer = null;
-    let pendingChunks = [];
+    const pendingChunks = [];
+    let isPlaying = false;
+    let waitingToAppend = false;
+
+    const processQueue = () => {
+      if (!sourceBuffer || sourceBuffer.updating || waitingToAppend || pendingChunks.length === 0) return;
+      const chunk = pendingChunks.shift();
+      waitingToAppend = true;
+      try {
+        sourceBuffer.appendBuffer(chunk);
+      } catch (e) {
+        console.error('appendBuffer failed', e);
+        pendingChunks.unshift(chunk);
+        waitingToAppend = false;
+      }
+    };
 
     ms.addEventListener('sourceopen', () => {
       sourceBuffer = ms.addSourceBuffer('audio/mpeg');
       sourceBuffer.addEventListener('updateend', () => {
-        if (pendingChunks.length) sourceBuffer.appendBuffer(pendingChunks.shift());
+        waitingToAppend = false;
+        processQueue();
+        if (!isPlaying && sourceBuffer.buffered.length > 0) {
+          player.play().catch(err => console.log('Autoplay blocked:', err));
+          isPlaying = true;
+        }
       });
+      processQueue();
     });
 
     ws.onmessage = (evt) => {
-      // Handle clear command FIRST
       if (typeof evt.data === 'string') {
-        const msg = JSON.parse(evt.data);
-        if (msg.type === 'clear') {
-          if (sourceBuffer) {
-            sourceBuffer.abort();
-            pendingChunks = [];
-          }
-          player.pause();
-          player.currentTime = 0;
-          return;
+        let msg;
+        try { msg = JSON.parse(evt.data); } catch { return; }
+        switch (msg.type) {
+          case 'pause':
+            player.pause();
+            isPlaying = false;
+            return;
+          case 'resume':
+            player.play().catch(() => {});
+            isPlaying = true;
+            return;
+          case 'clear':
+            if (sourceBuffer) {
+              try { sourceBuffer.abort(); } catch (e) { console.warn('abort failed', e); }
+            }
+            pendingChunks.length = 0;
+            player.pause();
+            player.currentTime = 0;
+            isPlaying = false;
+            return;
+          case 'end':
+            isPlaying = false;
+            return;
         }
       }
-      
-      // Handle audio chunks
-      const chunk = evt.data;
-      if (!sourceBuffer || sourceBuffer.updating) {
-        pendingChunks.push(chunk);
-      } else {
-        sourceBuffer.appendBuffer(chunk);
-      }
+      // binary chunk
+      pendingChunks.push(evt.data);
+      processQueue();
     };
+
+    ws.onerror = (err) => console.error('WS error:', err);
   </script>
 </body>
 </html>
